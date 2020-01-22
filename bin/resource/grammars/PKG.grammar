@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ufwb version="1.17">
+    <grammar name="PKG grammar" start="id:4" author="Computer" fileextension="pkg">
+        <description>Grammar for PKG files</description>
+        <structure name="PKG file" id="4" encoding="ISO_8859-1:1987" endian="little" signed="no">
+            <string name="magic" mustmatch="yes" id="6" type="fixed-length" length="4">
+                <fixedvalues>
+                    <fixedvalue name="PKG3" value="PKG3"/>
+                </fixedvalues>
+            </string>
+            <structure name="file" id="7" repeatmin="Unlimited" repeatmax="-1" valueexpression="name">
+                <string name="header" mustmatch="yes" id="9" type="fixed-length" length="4">
+                    <fixedvalues>
+                        <fixedvalue name="FILE" value="FILE"/>
+                    </fixedvalues>
+                </string>
+                <number name="name_len" id="10" type="integer" length="1"/>
+                <string name="name" id="11" type="fixed-length" length="name_len"/>
+                <number name="file_len" id="12" type="integer" length="4"/>
+                <structure name="data" id="13" length="file_len"/>
+            </structure>
+        </structure>
+    </grammar>
+</ufwb>

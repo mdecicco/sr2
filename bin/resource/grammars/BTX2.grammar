@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ufwb version="1.17">
+    <grammar name="BTX2 grammar" start="id:4" author="Computer" fileextension="btx2">
+        <description>Grammar for BTX2 files</description>
+        <structure name="BTX2 file" id="4" encoding="ISO_8859-1:1987" endian="little" signed="no">
+            <string name="TSV1" id="5" fillcolor="FFFF00" type="fixed-length" length="4" encoding="Adobe-Standard-Encoding">
+                <fixedvalues>
+                    <fixedvalue name="TSV1" value="TSV1"/>
+                </fixedvalues>
+            </string>
+            <structure name="unk_block0" id="6" valueexpression="length">
+                <number name="type" id="7" type="integer" length="2">
+                    <fixedvalues>
+                        <fixedvalue name="type" value="8192"/>
+                    </fixedvalues>
+                </number>
+                <number name="length" id="8" type="integer" length="4"/>
+                <number name="unknown" id="9" type="integer" length="4"/>
+            </structure>
+            <structure name="info_block" id="11" valueexpression="length">
+                <number name="type" id="12" type="integer" length="2">
+                    <fixedvalues>
+                        <fixedvalue name="type" value="8193"/>
+                    </fixedvalues>
+                </number>
+                <number name="length" id="13" type="integer" length="4"/>
+                <number name="unk0" id="14" type="integer" length="4"/>
+                <number name="maybe_width" id="15" type="integer" length="4"/>
+                <number name="maybe_height" id="16" type="integer" length="4"/>
+                <number name="maybe_bit_depth" id="17" type="integer" length="4"/>
+            </structure>
+            <structref name="height_map" id="20" structure="id:19"/>
+            <structref name="smaller_height_map" id="21" structure="id:19"/>
+            <structref name="texture_ids" id="22" structure="id:19"/>
+            <structref name="unk_map_1" id="23" structure="id:19"/>
+            <structure name="material_block" id="24" valueexpression="length">
+                <number name="type" id="25" fillcolor="A10000" type="integer" length="2"/>
+                <number name="length" id="26" fillcolor="098F00" type="integer" length="4"/>
+                <number name="material_count" id="27" fillcolor="E27C00" type="integer" length="4"/>
+                <structure name="material" id="28" length="32" repeat="id:27" repeatmin="material_count" repeatmax="material_count" fillcolor="78781E">
+                    <string name="name" id="29" fillcolor="499800" type="zero-terminated"/>
+                </structure>
+            </structure>
+            <structure name="texture_block" id="32" length="0" alignment="0" valueexpression="length">
+                <number name="type" id="33" fillcolor="A10000" type="integer" length="2">
+                    <fixedvalues>
+                        <fixedvalue name="type" value="8198"/>
+                    </fixedvalues>
+                </number>
+                <number name="length" id="34" fillcolor="098F00" type="integer" length="4"/>
+                <number name="texture_count" id="35" fillcolor="E27C00" type="integer" length="4"/>
+                <structure name="texture" id="36" length="34" repeat="id:35" repeatmin="texture_count" repeatmax="texture_count" fillcolor="78781E" valueexpression="filename">
+                    <string name="filename" id="37" fillcolor="499800" type="zero-terminated"/>
+                </structure>
+            </structure>
+            <structure name="path_data" id="40" valueexpression="length">
+                <number name="type" mustmatch="yes" id="41" fillcolor="A10000" type="integer" length="2">
+                    <fixedvalues>
+                        <fixedvalue name="type" value="8201"/>
+                    </fixedvalues>
+                </number>
+                <number name="length" id="42" fillcolor="098F00" type="integer" length="4"/>
+                <structure name="data" id="43" length="length">
+                    <structure name="unk0" id="44" valueexpression="count">
+                        <number name="count" id="45" fillcolor="3D9F40" type="integer" length="4"/>
+                        <structure name="data" id="46" length="6" repeat="id:45" repeatmin="count" repeatmax="count" valueexpression="cell_coord_1d">
+                            <number name="cell_coord_1d" id="47" fillcolor="009595" type="integer" length="1"/>
+                            <number name="path_tex_idx" id="48" fillcolor="AA00FF" type="integer" length="1"/>
+                            <number name="unk1_offset0" id="49" fillcolor="A200A2" type="integer" length="1"/>
+                            <number name="unk1_offset1" id="50" fillcolor="A200A2" type="integer" length="1"/>
+                            <number name="unk1_offset2" id="51" fillcolor="A200A2" type="integer" length="1"/>
+                            <number name="unk1_offset3" id="52" fillcolor="A200A2" type="integer" length="1"/>
+                        </structure>
+                    </structure>
+                    <structure name="unk1" id="55" valueexpression="count">
+                        <number name="count" id="56" fillcolor="3D9F40" type="integer" length="4"/>
+                        <structure name="data" id="57" length="4" alignment="0" repeatmin="count" repeatmax="count" valueexpression="unk3">
+                            <number name="unk0" id="58" fillcolor="68009C" type="integer" length="1"/>
+                            <number name="unk1" id="59" fillcolor="4B0071" type="integer" length="1"/>
+                            <number name="unk2" id="60" fillcolor="68009C" type="integer" length="1"/>
+                            <number name="unk3" id="61" fillcolor="747F00" type="integer" length="1"/>
+                        </structure>
+                    </structure>
+                    <structure name="path_textures" id="64">
+                        <number name="path_tex_count" id="65" fillcolor="C80000" type="integer" length="4"/>
+                        <structure name="texture_id" id="66" repeat="id:65" repeatmin="path_tex_count" repeatmax="path_tex_count" valueexpression="value">
+                            <number name="value" id="67" fillcolor="9D1DA1" type="integer" length="4"/>
+                        </structure>
+                    </structure>
+                    <structure name="pixels" id="70">
+                        <structure name="pixel" id="71" length="8" repeatmin="0" repeatmax="-1" valueexpression="unk1_idx">
+                            <number name="unk1_idx" id="72" fillcolor="7400BC" type="integer" length="4"/>
+                            <number name="unk0_idx" id="73" fillcolor="BC00A3" type="integer" length="4"/>
+                        </structure>
+                    </structure>
+                </structure>
+            </structure>
+            <structure name="unk_info" id="78" length="0" alignment="0">
+                <number name="type" id="79" fillcolor="A10000" type="integer" length="2"/>
+                <number name="length" id="80" fillcolor="098F00" type="integer" length="4"/>
+                <number name="value" id="81" fillcolor="0068D8" repeatmin="25" repeatmax="25" type="float" length="4"/>
+            </structure>
+            <structref name="block3" id="83" structure="id:19"/>
+            <structref name="unk_map_0" id="84" structure="id:19"/>
+            <number name="end" id="85" type="integer" length="2">
+                <fixedvalues>
+                    <fixedvalue name="eof" value="0"/>
+                </fixedvalues>
+            </number>
+        </structure>
+        <structure name="block" id="19" length="0" alignment="0" encoding="ISO_8859-1:1987" endian="little" signed="no" valueexpression="length">
+            <number name="type" id="87" fillcolor="A10000" type="integer" length="2"/>
+            <number name="length" id="88" fillcolor="098F00" type="integer" length="4"/>
+            <structure name="data" id="89" length="length" fillcolor="000095"/>
+        </structure>
+    </grammar>
+</ufwb>

@@ -1,0 +1,14 @@
+build/
+lib/
+include/
+bin/*.exe
+bin/*.ilk
+bin/*.pdb
+bin/*.ini
+bin/iripper1.8b
+bin/resource/data
+bin/resource/*.png
+bin/sr_maps
+bin/mem*.dat
+build/
+r2/

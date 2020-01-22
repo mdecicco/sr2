@@ -1,0 +1,3 @@
+[submodule "r2"]
+	path = r2
+	url = https://github.com/mdecicco/r2.git

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ufwb version="1.17">
+    <grammar name="MISS grammar" start="id:2" author="Computer" fileextension="miss">
+        <description>Grammar for MISS files</description>
+        <structure name="TSV file" id="2" encoding="ISO_8859-1:1987" endian="little" signed="no">
+            <string name="magic" mustmatch="yes" id="4" type="fixed-length" length="4">
+                <fixedvalues>
+                    <fixedvalue name="TSV1" value="TSV1"/>
+                </fixedvalues>
+            </string>
+            <structure name="block" id="93" repeatmin="Unlimited" repeatmax="-1" valueexpression="type">
+                <number name="type" id="95" fillcolor="009500" type="integer" length="2"/>
+                <number name="length" id="96" fillcolor="7F00BF" type="integer" length="4"/>
+                <structure name="data" id="97" length="length" alignment="0" fillcolor="4B658B"/>
+            </structure>
+            <number name="eof" id="99" fillcolor="FF0000" type="integer" length="2" minval="0" maxval="0"/>
+        </structure>
+    </grammar>
+</ufwb>
