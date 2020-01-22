@@ -1,6 +1,7 @@
 # sr2
 
 `git clone --recursive https://github.com/mdecicco/sr2.git`
+
 or
 
 `git clone https://github.com/mdecicco/sr2.git`
@@ -9,7 +10,6 @@ or
 
 
 create directory `(repo root)/bin/resource/data`
-
 download and extract the following files to that directory:
 
 http://download1477.mediafire.com/i2g7sgrp4aug/cxepis8wn344lcu/sr.zip
