@@ -1,2 +1,2 @@
-*.bin -text -diff
-*.dat -text -diff
+*.bin binary
+*.dat binary
