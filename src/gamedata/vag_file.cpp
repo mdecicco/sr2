@@ -46,6 +46,8 @@ namespace sr2 {
 
 		m_sampleCount = size / 2;
 		m_duration = f32(m_sampleCount) / f32(m_sampleRate);
+
+		return true;
 	}
 
 	bool vag_file::save(const char* wavFile) {
@@ -88,5 +90,7 @@ namespace sr2 {
 		fwrite(&hdr, h_sz, 1, fp);
 		fwrite(m_samples, m_sampleCount * 2, 1, fp);
 		fclose(fp);
+
+		return true;
 	}
 };

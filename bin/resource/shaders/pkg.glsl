@@ -9,8 +9,22 @@ out vec3 o_pos;
 out vec3 o_norm;
 out vec2 o_tex;
 out vec2 o_ttex;
+out float o_depth;
 
-layout (std140) uniform u_scene { mat4 transform; mat4 projection; mat4 view_proj; } scene;
+layout (std140) uniform u_scene {
+	mat4 transform;
+	mat4 projection;
+	mat4 view_proj;
+	mat4 invView;
+	vec3 camera_pos;
+	vec3 camera_left;
+	vec3 camera_up;
+	vec3 camera_forward;
+	float camera_near;
+	float camera_far;
+	float camera_fov;
+} scene;
+
 uniform vec2 terrainSize;
 
 vec3 hsv2rgb(vec3 c) {
@@ -26,6 +40,7 @@ void main() {
 	o_norm = vec3(inverse(transpose(transform)) * vec4(vnorm, 1.0));
 	o_tex = vtex;
 	o_ttex = vec2((tpos.x + 4.75752497) / (terrainSize.x * 5.0f), (tpos.z + 5.14905024) / (terrainSize.y * 5.0f));
+	o_depth = -(scene.transform * transform * vec4(vpos, 1.0)).z;
 };
 
 // fragment
@@ -35,6 +50,7 @@ in vec3 o_pos;
 in vec3 o_norm;
 in vec2 o_tex;
 in vec2 o_ttex;
+in float o_depth;
 
 uniform sampler2D tex;
 uniform sampler2D lightMap;
@@ -49,6 +65,32 @@ layout (std140) uniform u_material {
 	float tex_factor;
 	float highlight;
 } material;
+
+layout (std140) uniform u_scene {
+	mat4 transform;
+	mat4 projection;
+	mat4 view_proj;
+	mat4 invView;
+	vec3 camera_pos;
+	vec3 camera_left;
+	vec3 camera_up;
+	vec3 camera_forward;
+	float camera_near;
+	float camera_far;
+	float camera_fov;
+} scene;
+
+layout (std140) uniform u_fog {
+	float start;
+	float end;
+	float clamp;
+	vec3 color;
+} fog;
+
+vec4 calcFog(vec4 inColor) {
+	float fac = clamp((o_depth - fog.start) / (fog.end - fog.start), 0.0, fog.clamp);
+	return vec4((inColor.rgb * (1.0 - fac)) + (fog.color * fac), inColor.a);
+}
 
 layout(location = 0) out vec4 frag_color;
 layout(location = 1) out ivec4 frag_surfaceInfo;
@@ -80,6 +122,6 @@ void main() {
 	}
 	if (color.a < 0.5) discard;
 	color.rgb *= (material.highlight + 1.0);
-	frag_color = color;
+	frag_color = calcFog(color);
 	frag_surfaceInfo = ivec4(1, int(o_ttex.x * terrainSize.x), int(o_ttex.y * terrainSize.y), 0);
 }

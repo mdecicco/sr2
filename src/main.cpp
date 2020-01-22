@@ -22,17 +22,6 @@
 #define INSTANCE_RADIUS 128.0f
 
 using namespace r2;
-mvector<mstring> split(const mstring& str, const mstring& sep) {
-	char* cstr = const_cast<char*>(str.c_str());
-	char* current;
-	mvector<mstring> arr;
-	current = strtok(cstr, sep.c_str());
-	while (current!=NULL) {
-		arr.push_back(current);
-		current = strtok(NULL, sep.c_str());
-	}
-	return arr;
-}
 
 render_node* load_obj(const mstring& obj, scene* destScene) {
 	auto file = r2engine::get()->files()->load(obj, DM_TEXT, "obj");
@@ -49,7 +38,7 @@ render_node* load_obj(const mstring& obj, scene* destScene) {
 		}
 		r2engine::get()->files()->destroy(file);
 
-		shader_program* shader = destScene->load_shader("./resource/physics_test/shader.glsl", "shader");
+		shader_program* shader = destScene->load_shader("./resource/shaders/shader.glsl", "shader");
 		if (!shader) {
 			r2Error("Failed to load shader\n");
 			return nullptr;
@@ -149,9 +138,16 @@ render_node* load_obj(const mstring& obj, scene* destScene) {
 	}
 }
 
-static bool mesh_debug = false;
+static bool mesh_debug = true;
 static bool is_vehicle = true;
+//#define debug_file "geometry/vpatv.pkg"
+//#define debug_file "geometry/vphalftrack.pkg"
+//#define debug_file "geometry/vphondo.pkg"
+//#define debug_file "geometry/vpmil2.pkg"
+//#define debug_file "geometry/vprally2.pkg"
 #define debug_file "geometry/vpsupbug.pkg"
+//#define debug_file "geometry/vpsuv2.pkg"
+//#define debug_file "geometry/vptrophy.pkg"
 
 f32 random(f32 min = -1.0f, f32 max = 1.0f) {
 	return min + f32(rand()) / (f32(RAND_MAX) / (max - min));
@@ -175,10 +171,15 @@ class test_entity : public scene_entity {
 		
 			mat4f t(1.0f);
 			f32 mass = 10.0f;
+			static bool didFloorAlready = false;
 			if (is_floor) {
 				mass = 0.0f;
 				t = glm::translate(t, vec3f(0.0f, -2.0f, 0.0f));
+				if (didFloorAlready) {
+					t = glm::rotate(t, glm::radians(45.0f), vec3f(1, 0, 0));
+				}
 				t = glm::scale(t, vec3f(100.0f, 1.0f, 100.0f));
+				didFloorAlready = true;
 			} else {
 				vec3f r(random() * INSTANCE_RADIUS, random() * 5.0f, random() * INSTANCE_RADIUS);
 				t = glm::translate(t, vec3f(896.0f * 2.5f, 50.0f, 576.0f * 2.5f) + r);
@@ -254,11 +255,13 @@ class test_state : public state {
 			camera = nullptr;
 			gdm = nullptr;
 			terrain = nullptr;
+			vehicle = nullptr;
 			fullscreen_tex = nullptr;
 			render_target = nullptr;
 			mission = nullptr;
 			draw = nullptr;
 			draw_shader = nullptr;
+			sky = nullptr;
 			listItem = 0;
 		}
 
@@ -268,7 +271,7 @@ class test_state : public state {
 
 
 		virtual void becameActive() {
-			setUpdateFrequency(5.0f);
+			setUpdateFrequency(-1.0f);
 			glEnable(GL_MULTISAMPLE);
 
 			gdm = new sr2::gamedata_manager(getScene());
@@ -296,11 +299,11 @@ class test_state : public state {
 			ImGui::Begin("Info", &open, ImVec2(300, 100), 0.5f);
 				ImGui::Text("FPS: %.2f", r2engine::get()->fps());
 
-				render_terrain_ui();
+				//render_terrain_ui();
 
 				gdm->render_debug_ui();
 				
-				if (mesh_debug) {
+				if (mesh_debug && !is_vehicle) {
 					mvector<const char*> files;
 					for (mstring& file : allFiles) {
 						if (file.find(".pkg") != mstring::npos) {
@@ -309,6 +312,54 @@ class test_state : public state {
 					}
 					if (ImGui::ListBox("##files", &listItem, &files[0], files.size(), 30)) {
 						load_mesh(files[listItem]);
+					}
+				}
+
+
+				if (vehicle) {
+					ImGui::InputFloat("RPM", &vehicle->state.rpm, 10.0f, 10.0f, 2);
+					ImGui::InputFloat("Engine Force", &vehicle->state.engine_force, 10.0f, 10.0f, 2, ImGuiInputTextFlags_ReadOnly);
+					ImGui::InputFloat("rear gear ratio", &vehicle->state.rear_gear_ratio, 0.01f, 0.01f, 2.0f);
+					ImGui::InputFloat("transmission gear ratio", &vehicle->state.trans_gear_ratio, 0.01f, 0.01f, 2.0f);
+
+					static f32 ssm = 11.0f;
+					static f32 sdm = 5.0f;
+					static f32 sfm = 295.0f;
+					static f32 sfsm = 33.0f;
+					bool recalculate = false;
+					if (ImGui::InputFloat("suspension stiffness mult", &ssm, 1.0f, 1.0f, 2.0f)) {
+						recalculate = true;
+					}
+					if (ImGui::InputFloat("suspension damping mult", &sdm, 1.0f, 1.0f, 2.0f)) {
+						recalculate = true;
+					}
+					if (ImGui::InputFloat("suspension max force mult", &sfm, 1.0f, 1.0f, 2.0f)) {
+						recalculate = true;
+					}
+					if (ImGui::InputFloat("friction slip mult", &sfsm, 1.0f, 1.0f, 2.0f)) {
+						recalculate = true;
+					}
+					for (u8 i = 0;i < 4;i++) {
+						btWheelInfo& info = vehicle->vehicle->getWheelInfo(i);
+						if (ImGui::InputFloat(format_string("Wheel %d rest length", i).c_str(), &info.m_suspensionRestLength1, 1.0f, 1.0f, 2.0f));
+					}
+
+					if (recalculate) {
+						for (u8 i = 0;i < 4;i++) {
+							bool isFrontWheel = i <= 1;
+
+							f32 sus_min = isFrontWheel ? vehicle->props.sim.front_wheels.suspension_limit : vehicle->props.sim.rear_wheels.suspension_limit;
+							f32 sus_max = isFrontWheel ? vehicle->props.sim.front_wheels.suspension_extent : vehicle->props.sim.rear_wheels.suspension_extent;
+							f32 sus_fac = isFrontWheel ? vehicle->props.sim.front_wheels.suspension_factor : vehicle->props.sim.rear_wheels.suspension_factor;
+							f32 sus_dmp = isFrontWheel ? vehicle->props.sim.front_wheels.suspension_damping : vehicle->props.sim.rear_wheels.suspension_damping;
+							f32 f_slip = isFrontWheel ? vehicle->props.sim.front_wheels.optimum_slip_percent : vehicle->props.sim.rear_wheels.optimum_slip_percent;
+
+							btWheelInfo& info = vehicle->vehicle->getWheelInfo(i);
+							info.m_frictionSlip = f_slip * sfsm;
+							info.m_suspensionStiffness = sus_fac * ssm;
+							info.m_wheelsDampingCompression = sus_dmp * sdm;
+							info.m_maxSuspensionForce = vehicle->props.sim.mass * sfm;
+						}
 					}
 				}
 
@@ -322,7 +373,7 @@ class test_state : public state {
 					}
 				ImGui::End();
 			} else {
-				//render_entity_ui(vehicle);
+				if (vehicle) render_entity_ui(vehicle);
 			}
 
 			draw->end();
@@ -330,14 +381,48 @@ class test_state : public state {
 		}
 
 		virtual void doUpdate(f32 frameDt, f32 updateDt) {
-			if (mesh_debug) return;
+			if (sky) {
+				mat4f t(1.0f);
+				mat4f p(1.0f);
+				if (vehicle) {
+					t = glm::inverse(vehicle->camera->transform->transform);
+					p = vehicle->camera->camera->projection;
+				} else if (camera) {
+					t = glm::inverse(camera->transform->transform);
+					p = camera->camera->projection;
+				}
+				vec3f pos = t[3];
+				f32 c = p[2][2];
+				f32 d = p[2][3];
+				f32 near = d / (c - 1.0f);
+				f32 far = d / (c + 1.0f);
+				f32 s = (far - near);
+				s *= 0.2f;
+
+				mat4f st(1.0f);
+				st = glm::translate(st, pos);
+				st = glm::scale(st, vec3f(s, s, s));
+				sky->uniforms()->uniform_mat4f("transform", st);
+			}
+
+			if (mesh_debug) {
+				if (r2engine::input()->joystick_count() > 0) {
+					auto js = r2engine::input()->joystick(0);
+					if (js->getJoyStickState().mButtons[0]) {
+						vehicle->move_to(glm::translate(mat4f(1.0f), vec3f(0, 10, 0)));
+					}
+				}
+				return;
+			}
+
 			if (r2engine::input()->joystick_count() > 0) {
 				auto js = r2engine::input()->joystick(0);
-				if (js->getJoyStickState().mButtons[0]) {
+				if (js->getJoyStickState().mButtons[0] && vehicle) {
 					vehicle->physics->rigidBody()->applyCentralImpulse(btVector3(0.0f, 100.0f, 0.0f));
 					vehicle->move_to(glm::translate(mat4f(1.0f), vec3f(666.0f * 2.5f, 40.0f, 576.0f * 2.5f)));
 				}
-				if (js->getJoyStickState().mButtons[8]) {
+
+				if (js->getJoyStickState().mButtons[8] && !vehicle) {
 					test_entity* e = *cubes->at(rand() % INSTANCE_COUNT);
 					
 					mat4f cam = glm::inverse(camera->transform->transform);
@@ -368,11 +453,6 @@ class test_state : public state {
 
 
 		void init_scene() {
-			if (!mesh_debug || !is_vehicle) {
-				camera = new fly_camera_entity();
-				camera->j_pos = vec3f(0.09f, -0.11f, -3.7f);
-			}
-
 			if (!mesh_debug) {
 				cubes = new dynamic_pod_array<test_entity*>();
 
@@ -385,18 +465,16 @@ class test_state : public state {
 				terrain = new terrain_entity("offroad/Afghan.btx2", "offroad/afghan.imap", getScene(), gdm);
 				mvector<sr2::pkg_entity*> entities = gdm->get_instances("offroad/Afghan.inst");
 
-				//load_vehicle("geometry/vpsupbug.pkg");
-				camera = new fly_camera_entity();
-				camera->j_pos = vec3f(0.09f, -0.11f, -3.7f);
+				if (is_vehicle) load_vehicle(debug_file);
+				else load_vehicle("geometry/vpsupbug.pkg");
 
 				mission = gdm->get_mission("Afghan_AAAcruise.sp");
-				camera->j_pos = vec3f(-896.0f * 2.5f, -40.0f, -576.0f * 2.5f);//-mission->player_start_pos;
-				r2Warn("%f, %f, %f", mission->player_start_pos.x, mission->player_start_pos.y, mission->player_start_pos.z);
 			} else {
 				cubes = new dynamic_pod_array<test_entity*>();
 
 				mesh = load_obj("./resource/physics_test/cube.obj", getScene());
 
+				cubes->push(new test_entity(mesh, true));
 				cubes->push(new test_entity(mesh, true));
 				
 				allFiles = gdm->archive()->file_list();
@@ -414,6 +492,19 @@ class test_state : public state {
 				if (!is_vehicle) load_mesh(debug_file);
 				else load_vehicle(debug_file);
 			}
+
+
+			if (!vehicle || !vehicle->camera) {
+				camera = new fly_camera_entity();
+				// recently discovered that mission->player_start_pos doesn't come
+				// from data that actually represents the player start position
+				if (mission) camera->j_pos = -mission->player_start_pos;
+				else camera->j_pos = vec3f(-896.0f * 2.5f, -40.0f, -576.0f * 2.5f);
+			}
+
+			sky = gdm->get_sky("offroad/Afghan.sky");
+			uniform_block* fog = gdm->get_fog("tune/fog/afghan.fog");
+			if (mesh) mesh->add_uniform_block(fog);
 		}
 
 		void init_render_target() {
@@ -546,7 +637,6 @@ class test_state : public state {
 			if (ImGui::InputFloat("Static friction", &sf, 0.01f, 0.01f, 2)) {
 				terrain->physics->rigidBody()->setFriction(sf);
 			}
-			//ImGui::InputFloat("Max vehicle torque", &vehicle->maxTorque, 10.0f, 10.0f, 2);
 
 			shader_program* tshdr = terrain->shader;
 			tshdr->activate();
@@ -608,6 +698,7 @@ class test_state : public state {
 
 		dynamic_pod_array<test_entity*>* cubes;
 		render_node* mesh;
+		render_node* sky;
 
 		fly_camera_entity* camera;
 		terrain_entity* terrain;
@@ -633,7 +724,7 @@ int main(int argc, char** argv) {
 	r2engine::create(argc, argv);
 	auto eng = r2engine::get();
 
-	eng->open_window(1800, 800, "sr2", true);
+	eng->open_window(1200, 800, "sr2", true);
 	eng->renderer()->set_driver(new gl_render_driver(eng->renderer()));
 
 	glEnable(GL_ALPHA_TEST);

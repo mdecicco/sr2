@@ -5,6 +5,7 @@
 #include <gamedata/btx2_file.h>
 #include <gamedata/inst_file.h>
 #include <gamedata/bbnd_file.h>
+#include <gamedata/bnd_file.h>
 
 #include <r2/engine.h>
 #include <r2/utilities/utils.h>
@@ -60,11 +61,26 @@ namespace sr2 {
 		return pf;
 	}
 
-	bbnd_file* game_archive::open_mesh_bounds(const r2::mstring& file) {
+	bbnd_file* game_archive::open_mesh_bounds(const mstring& file) {
 		data_container* container = open(file, DM_BINARY);
 		if (!container) return nullptr;
 
 		bbnd_file* bf = new bbnd_file();
+		if (!bf->read(container)) {
+			delete bf;
+			r2engine::files()->destroy(container);
+			return nullptr;
+		}
+		r2engine::files()->destroy(container);
+
+		return bf;
+	}
+
+	bnd_file* game_archive::open_mesh_bounds_text(const mstring& file) {
+		data_container* container = open(file, DM_TEXT);
+		if (!container) return nullptr;
+
+		bnd_file* bf = new bnd_file();
 		if (!bf->read(container)) {
 			delete bf;
 			r2engine::files()->destroy(container);
@@ -173,15 +189,18 @@ namespace sr2 {
 			m_data->set_position(file.name_offset);
 			mstring filename;
 			m_data->read_string(filename);
+			std::transform(filename.begin(), filename.end(), filename.begin(), std::tolower);
 			m_files.set(filename, file.info);
 		}
 	}
 
 	data_container* dave_zip::open(const mstring& file, DATA_MODE mode) {
 		r2Log("Attempting to read '%s' from archive", file.c_str());
+		mstring filename = file;
+		std::transform(filename.begin(), filename.end(), filename.begin(), std::tolower);
 		if (!m_data) return nullptr;
-		if (!m_files.has(file)) return nullptr;
-		file_info* info = m_files.get(file);
+		if (!m_files.has(filename)) return nullptr;
+		file_info* info = m_files.get(filename);
 
 		if (info->compressed_size == info->decompressed_size) {
 			// file is not compressed
@@ -247,7 +266,9 @@ namespace sr2 {
 	}
 
 	bool dave_zip::exists(const mstring& file) {
-		return m_files.has(file);
+		mstring filename = file;
+		std::transform(filename.begin(), filename.end(), filename.begin(), std::tolower);
+		return m_files.has(filename);
 	}
 
 	mvector<mstring> dave_zip::file_list() const {

@@ -5,7 +5,9 @@
 #include <gamedata/tex_file.h>
 #include <gamedata/inst_file.h>
 #include <gamedata/bbnd_file.h>
+#include <gamedata/vag_file.h>
 #include <gamedata/mission.h>
+#include <gamedata/vehicle_props.h>
 
 #include <entities/pkg.h>
 #include <entities/vehicle.h>
@@ -57,6 +59,24 @@ namespace sr2 {
 		m_pkgMtrl = new node_material("u_material", m_pkgMtrlFormat);
 		m_pkgMtrl->set_shader(m_pkgShdr);
 
+		m_skyMtrlFormat = new uniform_format();
+		m_skyMtrlFormat->add_attr("ambient", uat_vec4f);
+		m_skyMtrlFormat->add_attr("diffuse", uat_vec4f);
+		m_skyMtrlFormat->add_attr("specular", uat_vec4f);
+		m_skyMtrlFormat->add_attr("emissive", uat_vec4f);
+		m_skyMtrlFormat->add_attr("tex_factor", uat_float);
+
+		m_skyShdr = m_scene->load_shader("./resource/shaders/sky.glsl", "sky_shader");
+		m_skyMtrl = new node_material("u_material", m_skyMtrlFormat);
+		m_skyMtrl->set_shader(m_skyShdr);
+
+		m_fogFormat = new uniform_format();
+		m_fogFormat->add_attr("start", uat_float);
+		m_fogFormat->add_attr("end", uat_float);
+		m_fogFormat->add_attr("clamp", uat_float);
+		m_fogFormat->add_attr("color", uat_vec3f);
+		m_fogUniforms = m_scene->allocate_uniform_block("u_fog", m_fogFormat);
+
 		m_terrainLightMap = nullptr;
 	}
 
@@ -65,6 +85,8 @@ namespace sr2 {
 		delete m_pkgVertexFormat;
 		delete m_pkgInstanceFormat;
 		delete m_pkgMtrlFormat;
+		delete m_skyMtrlFormat;
+		delete m_fogFormat;
 		delete m_archive;
 		delete m_ramshop;
 	}
@@ -181,6 +203,8 @@ namespace sr2 {
 			r2engine::files()->destroy(lm);
 		}
 
+		node->add_uniform_block(m_fogUniforms);
+
 		m_pkgShdr->activate();
 		m_pkgShdr->uniform2f(m_pkgShdr->get_uniform_location("terrainSize"), width, length);
 		m_pkgShdr->deactivate();
@@ -246,6 +270,7 @@ namespace sr2 {
 			if (okay) {
 				render_node* node = m_scene->add_mesh(mc);
 				if (node) {
+					node->add_uniform_block(m_fogUniforms);
 					node_material_instance* instance = m_pkgMtrl->instantiate(m_scene);
 					if (m_terrainLightMap) instance->set_texture("lightMap", m_terrainLightMap);
 					node->set_material_instance(instance);
@@ -282,6 +307,176 @@ namespace sr2 {
 		}
 
 		return nodes;
+	}
+
+	render_node* gamedata_manager::get_sky(const mstring& file) {
+		data_container* sf = open(file, DM_TEXT);
+		if (!sf) return nullptr;
+		mstring line;
+		sf->read_line(line);
+		r2engine::files()->destroy(sf);
+
+		mvector<mstring> comps = split(line, " \t\n\r");
+		if (comps.size() != 6) {
+			r2Error("Invalid sky file '%s'", file.c_str());
+			return nullptr;
+		}
+
+		pkg_file* pkg = m_archive->open_mesh("geometry/" + comps[0] + ".pkg");
+		if (!pkg) {
+			pkg = m_ramshop->open_mesh(file);
+			if (!pkg) return nullptr;
+		}
+
+		render_node* node = nullptr;
+		if (pkg->meshes.size() > 1) {
+			r2Error("Sky has multiple meshes 'geometry/%s.pkg'", comps[0].c_str());
+			delete pkg;
+			return nullptr;
+		}
+
+		mstring texture = "s_sky_gray";
+		if (comps[0] == "a_morning01") texture = "a_sky_mor";
+		else if (comps[0] == "a_sunset01") texture = "a_sky_set";
+		else if (comps[0] == "a_rain01") texture = "a_sky_rain03";
+		else if (comps[0] == "v_sky_eve03") texture = "v_sky_eve03";
+		else if (comps[0] == "v_sky_eve02") texture = "v_sky_eve";
+		else if (comps[0] == "v_sky_eve01") texture = "v_sky_eve";
+		else if (comps[0] == "v_sky_day01") texture = "v_sky_day";
+		else if (comps[0] == "s_sky_morn01") texture = "s_sky_mor";
+		else if (comps[0] == "s_sky_eve01") texture = "s_sky_set";
+		texture = "texture/" + texture + ".tex";
+
+		for (auto& mesh : pkg->meshes) {
+			mesh_construction_data* mc = new mesh_construction_data(m_pkgVertexFormat, it_unsigned_int);
+			mc->set_max_vertex_count(mesh.vertices.size());
+			mc->set_max_index_count(mesh.indices.size());
+
+			bool okay = true;
+			f32 radius = 0.0f;
+			for (u32 v = 0;v < mesh.vertices.size();v++) {
+				f32 l = glm::length(mesh.vertices[v].position);
+				if (l > radius) radius = l;
+			}
+			radius = 1.0f / radius;
+			for (u32 v = 0;v < mesh.vertices.size();v++) {
+				mesh.vertices[v].position *= radius;
+				if (!mc->append_vertex(mesh.vertices[v])) {
+					delete mc;
+					okay = false;
+					break;
+				}
+			}
+			for (u32 v = 0;v < mesh.vertices.size();v++) {
+				f32 l = glm::length(mesh.vertices[v].position);
+				if (l > radius) radius = l;
+			}
+
+			for (u32 idx : mesh.indices) {
+				if (!mc->append_index(idx)) {
+					delete mc;
+					okay = false;
+					break;
+				}
+			}
+
+			if (okay) {
+				node = m_scene->add_mesh(mc);
+				delete mc;
+				if (node) {
+					node->add_uniform_block(m_fogUniforms);
+					node_material_instance* instance = m_skyMtrl->instantiate(m_scene);
+					node->set_material_instance(instance);
+					if (mesh.material.texture.length() > 0) texture = mesh.material.texture;
+
+					texture_buffer* tex = get_texture(texture);
+					if (tex) {
+						instance->set_texture("tex", tex);
+						struct color4b { u8 r, g, b, a; };
+						color4b* pixels = (color4b*)tex->data();
+						for (size_t i = 0;i < tex->width() * tex->height();i++) {
+							if (pixels[i].a != 255) {
+								node->has_transparency = true;
+								break;
+							}
+						}
+						instance->uniforms()->uniform_float("tex_factor", 1.0f);
+					} else {
+						mvector<texture_buffer*> sequence = get_texture_sequence(mesh.material.texture);
+						if (sequence.size() > 0) {
+							instance->set_texture("tex", sequence, 1.0f, true);
+							instance->uniforms()->uniform_float("tex_factor", 1.0f);
+						} else instance->uniforms()->uniform_float("tex_factor", 0.0f);
+					}
+
+					instance->uniforms()->uniform_vec4f("ambient", mesh.material.unk[0]);
+					instance->uniforms()->uniform_vec4f("diffuse", mesh.material.unk[1]);
+					instance->uniforms()->uniform_vec4f("specular", mesh.material.unk[2]);
+					instance->uniforms()->uniform_vec4f("emissive", mesh.material.unk[3]);
+				} else {
+					delete pkg;
+					return nullptr;
+				}
+			} else {
+				delete mc;
+				delete pkg;
+				return nullptr;
+			}
+		}
+
+		delete pkg;
+		return node;
+	}
+
+	uniform_block* gamedata_manager::get_fog(const mstring& file) {
+		data_container* ff = open(file, DM_TEXT);
+		if (!ff) return nullptr;
+		while (!ff->at_end(1)) {
+			mstring line;
+			if (!ff->read_line(line)) break;
+
+			mvector<mstring> comps = split(line, " \t\n\r");
+			if (comps.size() == 0) continue;
+
+			if (comps[0] == "fogstart") {
+				if (comps.size() != 2) {
+					r2Error("Invalid 'fogstart' line in fog file '%s'", file.c_str());
+					continue;
+				}
+
+				m_fogUniforms->uniform_float("start", atof(comps[1].c_str()));
+			}
+			else if (comps[0] == "fogend") {
+				if (comps.size() != 2) {
+					r2Error("Invalid 'fogend' line in fog file '%s'", file.c_str());
+					continue;
+				}
+
+				m_fogUniforms->uniform_float("end", atof(comps[1].c_str()));
+			}
+			else if (comps[0] == "fogclamp") {
+				if (comps.size() != 2) {
+					r2Error("Invalid 'fogclamp' line in fog file '%s'", file.c_str());
+					continue;
+				}
+
+				m_fogUniforms->uniform_float("clamp", atof(comps[1].c_str()));
+			}
+			else if (comps[0] == "fogcolor") {
+				if (comps.size() != 4) {
+					r2Error("Invalid 'fogcolor' line in fog file '%s'", file.c_str());
+					continue;
+				}
+				m_fogUniforms->uniform_vec3f("color", vec3f(
+					atof(comps[1].c_str()) / 255.0f,
+					atof(comps[2].c_str()) / 255.0f,
+					atof(comps[3].c_str()) / 255.0f
+				));
+			}
+		}
+		r2engine::files()->destroy(ff);
+
+		return m_fogUniforms;
 	}
 
 	vehicle_entity* gamedata_manager::get_vehicle(const mstring& file, u32 max_instances) {
@@ -350,6 +545,7 @@ namespace sr2 {
 			if (okay) {
 				render_node* node = m_scene->add_mesh(mc);
 				if (node) {
+					node->add_uniform_block(m_fogUniforms);
 					node_material_instance* instance = m_pkgMtrl->instantiate(m_scene);
 					if (m_terrainLightMap) instance->set_texture("lightMap", m_terrainLightMap);
 					node->set_material_instance(instance);
@@ -447,7 +643,46 @@ namespace sr2 {
 		vehicle_camera* cam = new vehicle_camera(vehicleName + "_camera");
 		root->camera = cam;
 		cam->tracking = root;
+
+		if (m_archive->exists("bound/" + vehicleName + "_BOUND.bnd")) {
+			root->bounds = m_archive->open_mesh_bounds_text("bound/" + vehicleName + "_BOUND.bnd");
+		}
+
+		vehicle_props_loader props_loader;
+		if (!props_loader.load(this, root, vehicleName)) {
+			r2Error("Failed to load vehicle props");
+		}
+
+
+		if (root->props.sound.engine_sample_count > 0) {
+			root->engine_sounds = new audio_source*[root->props.sound.engine_sample_count];
+			for (u8 i = 0;i < root->props.sound.engine_sample_count;i++) {
+				mstring audioName = root->props.sound.engine_samples[i].file_name;
+				root->engine_sounds[i] = get_audio(format_string("aud/audvag/eng/%c/%s.vag", audioName[0], audioName.c_str()));
+				root->engine_sounds[i]->setDoesLoop(true);
+				root->engine_sounds[i]->setGain(0.0f);
+			}
+		}
+
 		return root;
+	}
+
+	audio_source* gamedata_manager::get_audio(const mstring& file) {
+		vag_file* audio_data = m_archive->open_audio(file);
+		if (!audio_data) {
+			audio_data = m_ramshop->open_audio(file);
+			if (!audio_data) return nullptr;
+		}
+
+		audio_source* src = new audio_source();
+		if (!src->buffer(asf_mono_16bit, audio_data->samples(), audio_data->sampleCount() * sizeof(u16), audio_data->sampleRate())) {
+			delete src;
+			delete audio_data;
+			return nullptr;
+		}
+
+		delete audio_data;
+		return src;
 	}
 
 	texture_buffer* gamedata_manager::get_texture(const mstring& file) {
@@ -570,7 +805,8 @@ namespace sr2 {
 
 	void gamedata_manager::render_debug_ui() {
 		static float ambientMult = 0.48f;
-		ImGui::InputFloat("Ambient Multiplier", &ambientMult, 0.01f, 0.01f, 3);
+		ImGui::Text("Ambient Multiplier");
+		ImGui::InputFloat("##ambmult", &ambientMult, 0.01f, 0.01f, 3);
 		m_pkgShdr->activate();
 		m_pkgShdr->uniform1f(m_pkgShdr->get_uniform_location("ambientMult"), ambientMult);
 		m_pkgShdr->deactivate();

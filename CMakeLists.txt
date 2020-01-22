@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 project(sr2)
+add_subdirectory(r2)
+
 
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${PROJECT_SOURCE_DIR}/bin)
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${PROJECT_SOURCE_DIR}/bin)
@@ -10,6 +12,7 @@ file(GLOB_RECURSE sr2_game_src
     "src/*.hpp"
 )
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 add_executable(sr2_game ${sr2_game_src})
 
 MACRO(SOURCE_GROUP_BY_FOLDER target)
@@ -36,15 +39,18 @@ SOURCE_GROUP_BY_FOLDER(sr2_game)
 
 target_include_directories(sr2_game PUBLIC src)
 target_include_directories(sr2_game PUBLIC include)
+target_include_directories(sr2_game PUBLIC r2/engine)
+target_include_directories(sr2_game PUBLIC r2/engine/include)
+target_include_directories(sr2_game PUBLIC r2/engine/include/OIS)
+target_include_directories(sr2_game PUBLIC "C:\\Program Files (x86)\\OpenAL 1.1 SDK\\include")
+
 target_link_directories(sr2_game PUBLIC lib)
-target_include_directories(sr2_game PUBLIC ../r2/engine)
-target_include_directories(sr2_game PUBLIC ../r2/engine/include)
-target_include_directories(sr2_game PUBLIC ../r2/engine/include/OIS)
-target_link_directories(sr2_game PUBLIC ../r2/build/engine)
-target_link_directories(sr2_game PUBLIC ../r2/engine/lib)
+target_link_directories(sr2_game PUBLIC build/r2/engine)
+target_link_directories(sr2_game PUBLIC r2/engine/lib)
+target_link_directories(sr2_game PUBLIC "C:\\Program Files (x86)\\OpenAL 1.1 SDK\\libs\\Win64")
 
 SET(debug_libs
-	Debug/r2
+	r2
 	debug/v8pp
 	debug/v8
 	debug/v8_libbase
@@ -59,10 +65,12 @@ SET(debug_libs
 	debug/BulletDynamics_Debug
 	debug/LinearMath_Debug
 	debug/zlibstaticd
+	OpenAL32
 	opengl32
 )
+
 SET(release_libs
-	Release/r2
+	r2
 	release/v8pp
 	release/v8
 	release/v8_libbase
@@ -77,6 +85,7 @@ SET(release_libs
 	release/BulletDynamics
 	release/LinearMath
 	release/zlibstatic
+	OpenAL32
 	opengl32
 )
 

@@ -17,6 +17,7 @@ namespace sr2 {
 	class btx2_file;
 	class inst_file;
 	class bbnd_file;
+	class bnd_file;
 
 	class game_archive {
 		public:
@@ -31,6 +32,7 @@ namespace sr2 {
 			vag_file* open_audio(const r2::mstring& file);
 			pkg_file* open_mesh(const r2::mstring& file);
 			bbnd_file* open_mesh_bounds(const r2::mstring& file);
+			bnd_file* open_mesh_bounds_text(const r2::mstring& file);
 			btx2_file* open_terrain(const r2::mstring& file);
 			inst_file* open_instances(const r2::mstring& file);
 	};

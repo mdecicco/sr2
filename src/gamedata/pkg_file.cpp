@@ -54,7 +54,7 @@ namespace sr2 {
 				if (sidx == 256) sidx = section.unknown;
 				if (p.shaders.size() > 0 && sidx < p.shaders.size()) {
 					shader& s = p.shaders[sidx];
-					out.material.texture = "texture/" + s.texture + ".tex";
+					if (s.texture.length() > 0) out.material.texture = "texture/" + s.texture + ".tex";
 					out.material.unk[0] = c4b2v4f(s.unk[0]);
 					out.material.unk[1] = c4b2v4f(s.unk[1]);
 					out.material.unk[2] = c4b2v4f(s.unk[2]);

@@ -5,6 +5,7 @@
 
 namespace r2 {
 	enum DATA_MODE;
+	class audio_source;
 };
 
 namespace sr2 {
@@ -26,7 +27,13 @@ namespace sr2 {
 
 			r2::mvector<std::pair<r2::render_node*, bbnd_file*>> get_mesh(const mstring& file, u32 max_instances);
 
+			render_node* get_sky(const mstring& file);
+
+			r2::uniform_block* get_fog(const mstring& file);
+
 			vehicle_entity* get_vehicle(const mstring& file, u32 max_instances);
+
+			r2::audio_source* get_audio(const mstring& file);
 
 			r2::texture_buffer* get_texture(const mstring& file);
 
@@ -54,6 +61,12 @@ namespace sr2 {
 			r2::uniform_format* m_pkgMtrlFormat;
 			r2::node_material* m_pkgMtrl;
 			r2::shader_program* m_pkgShdr;
+			r2::uniform_format* m_skyMtrlFormat;
+			r2::node_material* m_skyMtrl;
+			r2::shader_program* m_skyShdr;
+			r2::uniform_format* m_fogFormat;
+			r2::uniform_block* m_fogUniforms;
+			r2::associative_pod_array<r2::mstring, r2::audio_source*> m_sounds;
 			r2::associative_pod_array<r2::mstring, r2::render_node*> m_nodes;
 			r2::associative_pod_array<r2::mstring, r2::texture_buffer*> m_textures;
 			r2::associative_pod_array<r2::mstring, r2::vertex_format*> m_meshVertexFormats;
