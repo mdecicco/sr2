@@ -1,2 +1,2 @@
-*.bin binary
-*.dat binary
+bin/*.bin binary
+bin/*.dat binary
