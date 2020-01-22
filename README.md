@@ -1,7 +1,6 @@
 # sr2
 
 `git clone --recursive https://github.com/mdecicco/sr2.git`
-
 or
 
 `git clone https://github.com/mdecicco/sr2.git`
