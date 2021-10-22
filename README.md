@@ -10,6 +10,7 @@ or
 
 
 create directory `(repo root)/bin/resource/data`
+
 Extract the following files from the game disc to that directory:
 - `sr.zip`
 - `ramshop.zip`
